@@ -3,6 +3,7 @@ const Teacher = require('../models/Teacher');
 const School = require('../models/School');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { sendTeacherWelcome, sendSchoolWelcome } = require('../services/emailService');
 
 // Generate JWT
 const generateToken = (id) => {
@@ -38,12 +39,15 @@ exports.registerTeacher = async (req, res) => {
             firstName, lastName, phone, state, lga, category, roleType, subjects, schoolLevels, availability
         });
 
+        const token = generateToken(user._id);
+        // Fire-and-forget welcome email
+        sendTeacherWelcome({ email, firstName }).catch(() => { });
         res.status(201).json({
             _id: user.id,
             email: user.email,
             role: user.role,
             profile: teacher,
-            token: generateToken(user._id),
+            token,
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -77,12 +81,15 @@ exports.registerSchool = async (req, res) => {
             schoolName, phone, state, lga, address, institutionTypes
         });
 
+        const schoolToken = generateToken(user._id);
+        // Fire-and-forget welcome email
+        sendSchoolWelcome({ email, schoolName }).catch(() => { });
         res.status(201).json({
             _id: user.id,
             email: user.email,
             role: user.role,
             profile: school,
-            token: generateToken(user._id),
+            token: schoolToken,
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
