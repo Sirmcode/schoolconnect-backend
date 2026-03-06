@@ -2,6 +2,8 @@ const Application = require('../models/Application');
 const Job = require('../models/Job');
 const Teacher = require('../models/Teacher');
 const School = require('../models/School');
+const User = require('../models/User');
+const { sendApplicationConfirmation, sendNewApplicantAlert } = require('../services/emailService');
 
 // @desc    Apply to a job (Teacher)
 // @route   POST /api/v1/applications/:jobId
@@ -29,6 +31,35 @@ exports.applyForJob = async (req, res) => {
             teacherId: teacher._id,
             matchScore
         });
+
+        // Fire-and-forget email notifications
+        const [teacherUser, school] = await Promise.all([
+            User.findById(req.user._id).select('email'),
+            School.findById(job.schoolId).select('schoolName'),
+        ]);
+        const schoolUser = school ? await User.findOne({ _id: { $exists: true } }).select('email').limit(1) : null;
+        const schoolUserDoc = await User.findOne({}).lean();
+        // Notify teacher
+        sendApplicationConfirmation({
+            teacherEmail: teacherUser?.email,
+            teacherName: `${teacher.firstName} ${teacher.lastName}`,
+            jobTitle: job.title,
+            schoolName: school?.schoolName || 'the school',
+        }).catch(() => { });
+        // Notify school
+        if (school) {
+            const sUser = await User.findOne({ _id: (await School.findById(job.schoolId).select('userId'))?.userId }).select('email');
+            if (sUser) {
+                sendNewApplicantAlert({
+                    schoolEmail: sUser.email,
+                    schoolName: school.schoolName,
+                    jobTitle: job.title,
+                    teacherName: `${teacher.firstName} ${teacher.lastName}`,
+                    teacherState: teacher.state,
+                    teacherSubjects: teacher.subjects || [],
+                }).catch(() => { });
+            }
+        }
 
         res.status(201).json(application);
     } catch (error) {
