@@ -143,9 +143,45 @@ async function sendNewApplicantAlert({ schoolEmail, schoolName, jobTitle, teache
     });
 }
 
+/* ── Email: Direct Message to Teacher ────── */
+async function sendTeacherMessage({ teacherEmail, teacherName, schoolName, schoolContact, message }) {
+    await sendMail({
+        to: teacherEmail,
+        subject: `New Message from ${schoolName} 🏫`,
+        html: wrap(`
+            <h2>Hello ${teacherName},</h2>
+            <p><strong>${schoolName}</strong> has sent you a direct message regarding an opportunity.</p>
+            <div class="highlight" style="white-space: pre-wrap;">
+                ${message}
+            </div>
+            <p><strong>Contact Info:</strong> ${schoolContact}</p>
+            <p>Please reply directly using the contact information above, or log in to SchoolConnect.</p>
+        `),
+    });
+}
+
+/* ── Email: Direct Message to School ─────── */
+async function sendSchoolMessage({ schoolEmail, schoolName, teacherName, teacherContact, message }) {
+    await sendMail({
+        to: schoolEmail,
+        subject: `New Message from ${teacherName} 🎓`,
+        html: wrap(`
+            <h2>Hello ${schoolName},</h2>
+            <p><strong>${teacherName}</strong> has sent you a direct message regarding a teaching position.</p>
+            <div class="highlight" style="white-space: pre-wrap;">
+                ${message}
+            </div>
+            <p><strong>Contact Info:</strong> ${teacherContact}</p>
+            <p>Please reply directly using the contact information above, or log in to SchoolConnect.</p>
+        `),
+    });
+}
+
 module.exports = {
     sendTeacherWelcome,
     sendSchoolWelcome,
     sendApplicationConfirmation,
     sendNewApplicantAlert,
+    sendTeacherMessage,
+    sendSchoolMessage,
 };
