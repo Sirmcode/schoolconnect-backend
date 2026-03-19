@@ -1,11 +1,19 @@
 /* ================================================
-   SchoolConnect — Email Service (Resend)
+   SchoolConnect — Email Service (Gmail / Nodemailer)
    ================================================ */
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 
-const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key');
-const FROM = process.env.EMAIL_FROM || 'SchoolConnect <onboarding@resend.dev>';
-const APP_URL = 'https://effortless-panda-9e950e.netlify.app';
+// Create reusable transporter using Gmail SMTP
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.GMAIL_USER,       // e.g. yourname@gmail.com
+        pass: process.env.GMAIL_APP_PASSWORD // 16-char App Password from Google
+    }
+});
+
+const FROM = `SchoolConnect <${process.env.GMAIL_USER || 'noreply@schoolconnect.com'}>`;
+const APP_URL = 'https://schoolconnects.netlify.app';
 
 /* ── Shared layout wrapper ────────────────── */
 function wrap(content) {
@@ -42,110 +50,97 @@ function wrap(content) {
 </body></html>`;
 }
 
+/* ── Helper to send email safely ──────────── */
+async function sendMail({ to, subject, html }) {
+    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) return; // skip if not configured
+    try {
+        await transporter.sendMail({ from: FROM, to, subject, html });
+        console.log(`📧 Email sent to ${to}: ${subject}`);
+    } catch (err) {
+        console.error(`❌ Email error (${to}):`, err.message);
+    }
+}
+
 /* ── Email: Welcome Teacher ───────────────── */
 async function sendTeacherWelcome({ email, firstName }) {
-    if (!process.env.RESEND_API_KEY) return; // skip if not configured
-    try {
-        await resend.emails.send({
-            from: FROM,
-            to: email,
-            subject: `Welcome to SchoolConnect, ${firstName}! 🎓`,
-            html: wrap(`
-                <h2>Welcome, ${firstName}! 👋</h2>
-                <p>Your teacher account has been created on <strong>SchoolConnect</strong> — Nigeria's smartest platform for connecting qualified teachers with private schools.</p>
-                <div class="highlight">
-                    <strong>What you can do now:</strong><br>
-                    ✅ Browse 15+ job listings from schools across Nigeria<br>
-                    ✅ Apply to jobs that match your qualifications<br>
-                    ✅ Run the AI Match Agent to find your best-fit schools<br>
-                    ✅ Build your professional teacher profile
-                </div>
-                <a href="${APP_URL}" class="btn">Browse Jobs Now →</a>
-                <p style="color:#666;font-size:13px;">Need help? Simply reply to this email.</p>
-            `),
-        });
-    } catch (err) {
-        console.error('Welcome teacher email error:', err.message);
-    }
+    await sendMail({
+        to: email,
+        subject: `Welcome to SchoolConnect, ${firstName}! 🎓`,
+        html: wrap(`
+            <h2>Welcome, ${firstName}! 👋</h2>
+            <p>Your teacher account has been created on <strong>SchoolConnect</strong> — Nigeria's smartest platform for connecting qualified teachers with private schools.</p>
+            <div class="highlight">
+                <strong>What you can do now:</strong><br>
+                ✅ Browse 15+ job listings from schools across Nigeria<br>
+                ✅ Apply to jobs that match your qualifications<br>
+                ✅ Run the AI Match Agent to find your best-fit schools<br>
+                ✅ Build your professional teacher profile
+            </div>
+            <a href="${APP_URL}" class="btn">Browse Jobs Now →</a>
+            <p style="color:#666;font-size:13px;">Need help? Simply reply to this email.</p>
+        `),
+    });
 }
 
 /* ── Email: Welcome School ────────────────── */
 async function sendSchoolWelcome({ email, schoolName }) {
-    if (!process.env.RESEND_API_KEY) return;
-    try {
-        await resend.emails.send({
-            from: FROM,
-            to: email,
-            subject: `Welcome to SchoolConnect, ${schoolName}! 🏫`,
-            html: wrap(`
-                <h2>Welcome, ${schoolName}! 👋</h2>
-                <p>Your school account is ready on <strong>SchoolConnect</strong> — the platform where Nigerian private schools find the right teachers fast.</p>
-                <div class="highlight">
-                    <strong>What you can do now:</strong><br>
-                    ✅ Browse 17+ qualified teachers in your state<br>
-                    ✅ Post job vacancies and receive applications<br>
-                    ✅ Use the AI Scout Agent to find matching teachers<br>
-                    ✅ Review applicants directly from your dashboard
-                </div>
-                <a href="${APP_URL}" class="btn">Open School Dashboard →</a>
-                <p style="color:#666;font-size:13px;">Need help? Simply reply to this email.</p>
-            `),
-        });
-    } catch (err) {
-        console.error('Welcome school email error:', err.message);
-    }
+    await sendMail({
+        to: email,
+        subject: `Welcome to SchoolConnect, ${schoolName}! 🏫`,
+        html: wrap(`
+            <h2>Welcome, ${schoolName}! 👋</h2>
+            <p>Your school account is ready on <strong>SchoolConnect</strong> — the platform where Nigerian private schools find the right teachers fast.</p>
+            <div class="highlight">
+                <strong>What you can do now:</strong><br>
+                ✅ Browse 17+ qualified teachers in your state<br>
+                ✅ Post job vacancies and receive applications<br>
+                ✅ Use the AI Scout Agent to find matching teachers<br>
+                ✅ Review applicants directly from your dashboard
+            </div>
+            <a href="${APP_URL}" class="btn">Open School Dashboard →</a>
+            <p style="color:#666;font-size:13px;">Need help? Simply reply to this email.</p>
+        `),
+    });
 }
 
 /* ── Email: Teacher applied (confirm to teacher) ── */
 async function sendApplicationConfirmation({ teacherEmail, teacherName, jobTitle, schoolName }) {
-    if (!process.env.RESEND_API_KEY) return;
-    try {
-        await resend.emails.send({
-            from: FROM,
-            to: teacherEmail,
-            subject: `Application sent — ${jobTitle} at ${schoolName}`,
-            html: wrap(`
-                <h2>Application Sent ✅</h2>
-                <p>Hi ${teacherName}, your application has been submitted successfully!</p>
-                <div class="highlight">
-                    <strong>📋 Application Details</strong><br>
-                    Position: <strong>${jobTitle}</strong><br>
-                    School: <strong>${schoolName}</strong>
-                </div>
-                <p>The school will review your profile and get in touch if there's a match. We'll keep you posted!</p>
-                <a href="${APP_URL}" class="btn">View My Applications →</a>
-            `),
-        });
-    } catch (err) {
-        console.error('Application confirmation email error:', err.message);
-    }
+    await sendMail({
+        to: teacherEmail,
+        subject: `Application sent — ${jobTitle} at ${schoolName}`,
+        html: wrap(`
+            <h2>Application Sent ✅</h2>
+            <p>Hi ${teacherName}, your application has been submitted successfully!</p>
+            <div class="highlight">
+                <strong>📋 Application Details</strong><br>
+                Position: <strong>${jobTitle}</strong><br>
+                School: <strong>${schoolName}</strong>
+            </div>
+            <p>The school will review your profile and get in touch if there's a match. We'll keep you posted!</p>
+            <a href="${APP_URL}" class="btn">View My Applications →</a>
+        `),
+    });
 }
 
 /* ── Email: New applicant (notify school) ─── */
 async function sendNewApplicantAlert({ schoolEmail, schoolName, jobTitle, teacherName, teacherState, teacherSubjects }) {
-    if (!process.env.RESEND_API_KEY) return;
-    try {
-        await resend.emails.send({
-            from: FROM,
-            to: schoolEmail,
-            subject: `New applicant for ${jobTitle} — ${teacherName}`,
-            html: wrap(`
-                <h2>New Job Application 📬</h2>
-                <p>Hi <strong>${schoolName}</strong>, a teacher just applied for one of your vacancies!</p>
-                <div class="highlight">
-                    <strong>👩‍🏫 Applicant Details</strong><br>
-                    Name: <strong>${teacherName}</strong><br>
-                    Location: ${teacherState}<br>
-                    Subjects: ${teacherSubjects.join(', ')}<br>
-                    Position: <strong>${jobTitle}</strong>
-                </div>
-                <a href="${APP_URL}" class="btn">Review Applicants →</a>
-                <p style="color:#666;font-size:13px;">Log in to your school dashboard to review and respond.</p>
-            `),
-        });
-    } catch (err) {
-        console.error('New applicant alert email error:', err.message);
-    }
+    await sendMail({
+        to: schoolEmail,
+        subject: `New applicant for ${jobTitle} — ${teacherName}`,
+        html: wrap(`
+            <h2>New Job Application 📬</h2>
+            <p>Hi <strong>${schoolName}</strong>, a teacher just applied for one of your vacancies!</p>
+            <div class="highlight">
+                <strong>👩‍🏫 Applicant Details</strong><br>
+                Name: <strong>${teacherName}</strong><br>
+                Location: ${teacherState}<br>
+                Subjects: ${teacherSubjects.join(', ')}<br>
+                Position: <strong>${jobTitle}</strong>
+            </div>
+            <a href="${APP_URL}" class="btn">Review Applicants →</a>
+            <p style="color:#666;font-size:13px;">Log in to your school dashboard to review and respond.</p>
+        `),
+    });
 }
 
 module.exports = {
