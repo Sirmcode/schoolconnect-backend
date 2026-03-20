@@ -60,14 +60,28 @@ exports.updateSchoolProfile = async (req, res) => {
 };
 
 const { sendTeacherMessage, sendSchoolMessage } = require('../services/emailService');
+const mongoose = require('mongoose');
 
 // @desc    Send Message to Teacher
 // @route   POST /api/v1/profile/message-teacher
 exports.messageTeacher = async (req, res) => {
     try {
         const { teacherId, message, contact } = req.body;
-        const teacherProfile = await Teacher.findById(teacherId).populate('userId');
-        if (!teacherProfile || !teacherProfile.userId) return res.status(404).json({ message: 'Teacher not found' });
+        if (!message || !message.trim()) return res.status(400).json({ message: 'Message body is required' });
+
+        // Find teacher safely — teacherId might be a Teacher._id OR a User._id
+        let teacherProfile;
+        if (teacherId && mongoose.Types.ObjectId.isValid(teacherId)) {
+            teacherProfile = await Teacher.findById(teacherId).populate('userId');
+            if (!teacherProfile) {
+                // Maybe teacherId is the userId
+                teacherProfile = await Teacher.findOne({ userId: teacherId }).populate('userId');
+            }
+        }
+
+        if (!teacherProfile || !teacherProfile.userId) {
+            return res.status(404).json({ message: 'Teacher not found. They may not have completed their profile yet.' });
+        }
         
         let schoolName = req.body.senderName || 'A School';
         if (req.user && req.user.role === 'school') {
