@@ -61,6 +61,7 @@ exports.updateSchoolProfile = async (req, res) => {
 
 const { sendTeacherMessage, sendSchoolMessage } = require('../services/emailService');
 const mongoose = require('mongoose');
+const Message = require('../models/Message');
 
 // @desc    Send Message to Teacher
 // @route   POST /api/v1/profile/message-teacher
@@ -95,6 +96,16 @@ exports.messageTeacher = async (req, res) => {
             schoolName,
             schoolContact: contact || (req.user ? req.user.email : 'No contact provided'),
             message
+        });
+
+        await Message.create({
+            senderParams: {
+                userId: req.user._id,
+                name: schoolName,
+                contact: contact || (req.user ? req.user.email : '')
+            },
+            receiver: teacherProfile.userId._id,
+            messageBody: message
         });
 
         res.json({ message: 'Message sent successfully' });
@@ -133,7 +144,30 @@ exports.messageSchool = async (req, res) => {
             message
         });
 
+        await Message.create({
+            senderParams: {
+                userId: req.user._id,
+                name: teacherName,
+                contact: contact || (req.user ? req.user.email : '')
+            },
+            receiver: schoolProfile.userId._id,
+            messageBody: message
+        });
+
         res.json({ message: 'Message sent successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Get inbox messages
+// @route   GET /api/v1/profile/message-inbox
+exports.getInbox = async (req, res) => {
+    try {
+        const messages = await Message.find({ receiver: req.user._id })
+            .sort({ createdAt: -1 });
+            
+        res.json(messages);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
